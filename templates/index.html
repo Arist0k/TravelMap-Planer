@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта путешествий</title>
+    <script src="https://api-maps.yandex.ru/2.1/?apikey={{ yandex_api_key }}&lang=ru_RU" type="text/javascript"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .map-container {
+            width: 100%;
+            height: 600px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .info h3 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .info p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* Стили для кастомного балуна */
+        .custom-balloon {
+            padding: 15px;
+            max-width: 300px;
+            font-family: Arial, sans-serif;
+        }
+
+        .custom-balloon textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .custom-balloon .buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .custom-balloon button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+
+        .custom-balloon .edit-btn {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .custom-balloon .edit-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .custom-balloon .delete-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .custom-balloon .delete-btn:hover {
+            background-color: #c82333;
+        }
+
+        .custom-balloon .save-btn {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .custom-balloon .save-btn:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Карта путешествий</h1>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+
+        <div class="info">
+            <h3>Статус</h3>
+            <p>✅ API ключ Яндекс Карт загружен из файла .env</p>
+            <p>Карта готова к использованию! Кликайте по карте, чтобы добавлять точки путешествий.</p>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        ymaps.ready(init);
+
+        function init() {
+            // Создаем карту
+            var map = new ymaps.Map('map', {
+                center: [55.76, 37.64], // Москва по умолчанию
+                zoom: 10,
+                controls: ['zoomControl', 'searchControl', 'typeSelector', 'fullscreenControl']
+            });
+
+            // Добавляем возможность кликать по карте для добавления меток
+            map.events.add('click', function (e) {
+                var coords = e.get('coords');
+                addPlacemark(map, coords);
+            });
+
+            // Пример добавления готовой метки
+            var moscowPlacemark = new ymaps.Placemark([55.76, 37.64], {
+                balloonContent: '<strong>Москва</strong><br>Столица России',
+                hintContent: 'Москва'
+            });
+
+            map.geoObjects.add(moscowPlacemark);
+        }
+
+        // Функция для создания метки с кастомным баллуном
+        function addPlacemark(map, coords) {
+            var placemarkId = Date.now() + Math.random(); // Уникальный ID для метки
+
+            // Создаем HTML содержимое балуна
+            var balloonContent = createBalloonContent(placemarkId, '', coords);
+
+            // Создаем метку
+            var placemark = new ymaps.Placemark(coords, {
+                balloonContent: balloonContent,
+                hintContent: 'Точка путешествия'
+            }, {
+                balloonPanelMaxMapArea: 0, // Балун не должен занимать всю карту
+                balloonCloseButton: false, // Убираем стандартную кнопку закрытия
+                balloonAutoPan: true
+            });
+
+            // Добавляем метку на карту
+            map.geoObjects.add(placemark);
+
+            // Автоматически открываем балун
+            placemark.balloon.open();
+
+            console.log('Добавлена точка:', coords);
+        }
+
+        // Функция создания HTML содержимого балуна
+        function createBalloonContent(id, text, coords) {
+            return `
+                <div class="custom-balloon" data-id="${id}">
+                    <textarea
+                        placeholder="Опишите это место..."
+                        onkeydown="handleTextareaKeydown(event, '${id}', ${coords[0]}, ${coords[1]})"
+                    >${text}</textarea>
+                    <div class="buttons">
+                        <button class="edit-btn" onclick="editPlacemark('${id}', ${coords[0]}, ${coords[1]})">
+                            Редактировать
+                        </button>
+                        <button class="delete-btn" onclick="deletePlacemark('${id}')">
+                            Удалить
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Функция редактирования метки
+        function editPlacemark(id, lat, lng) {
+            var balloon = document.querySelector(`[data-id="${id}"]`);
+            if (!balloon) return;
+
+            var textarea = balloon.querySelector('textarea');
+            var buttons = balloon.querySelector('.buttons');
+
+            // Сохраняем текущий текст
+            var currentText = textarea.value;
+
+            // Меняем кнопки на режим редактирования
+            buttons.innerHTML = `
+                <button class="save-btn" onclick="savePlacemark('${id}', ${lat}, ${lng})">
+                    Сохранить
+                </button>
+                <button class="delete-btn" onclick="cancelEditPlacemark('${id}', '${currentText.replace(/'/g, "\\'")}', ${lat}, ${lng})">
+                    Отмена
+                </button>
+            `;
+
+            // Фокусируемся на textarea
+            textarea.focus();
+            textarea.select();
+        }
+
+        // Функция сохранения изменений
+        function savePlacemark(id, lat, lng) {
+            var balloon = document.querySelector(`[data-id="${id}"]`);
+            if (!balloon) return;
+
+            var textarea = balloon.querySelector('textarea');
+            var newText = textarea.value;
+
+            // Обновляем содержимое балуна
+            var updatedContent = createBalloonContent(id, newText, [lat, lng]);
+            balloon.innerHTML = updatedContent;
+
+            console.log('Сохранена точка:', { id, coords: [lat, lng], text: newText });
+        }
+
+        // Функция отмены редактирования
+        function cancelEditPlacemark(id, originalText, lat, lng) {
+            var balloon = document.querySelector(`[data-id="${id}"]`);
+            if (!balloon) return;
+
+            // Восстанавливаем оригинальный балун
+            var restoredContent = createBalloonContent(id, originalText, [lat, lng]);
+            balloon.innerHTML = restoredContent;
+        }
+
+        // Функция удаления метки
+        function deletePlacemark(id) {
+            // Находим все метки на карте
+            var map = document.getElementById('map');
+            if (!map || !window.mapInstance) return;
+
+            // Получаем все геообъекты
+            var geoObjects = window.mapInstance.geoObjects;
+
+            // Ищем и удаляем метку с соответствующим ID
+            geoObjects.each(function(obj) {
+                if (obj.properties && obj.properties._data &&
+                    obj.properties._data.balloonContent &&
+                    obj.properties._data.balloonContent.includes(`data-id="${id}"`)) {
+                    geoObjects.remove(obj);
+                    console.log('Удалена точка с ID:', id);
+                    return false; // Прерываем цикл
+                }
+            });
+        }
+
+        // Обработка нажатия Enter в textarea
+        function handleTextareaKeydown(event, id, lat, lng) {
+            if (event.key === 'Enter' && event.ctrlKey) {
+                event.preventDefault();
+                savePlacemark(id, lat, lng);
+            }
+        }
+
+        // Сохраняем ссылку на карту для доступа из функций
+        ymaps.ready(function() {
+            window.mapInstance = new ymaps.Map('map', {
+                center: [55.76, 37.64],
+                zoom: 10,
+                controls: ['zoomControl', 'searchControl', 'typeSelector', 'fullscreenControl']
+            });
+
+            // Добавляем возможность кликать по карте для добавления меток
+            window.mapInstance.events.add('click', function (e) {
+                var coords = e.get('coords');
+                addPlacemark(window.mapInstance, coords);
+            });
+
+            // Пример добавления готовой метки
+            var moscowPlacemark = new ymaps.Placemark([55.76, 37.64], {
+                balloonContent: '<strong>Москва</strong><br>Столица России',
+                hintContent: 'Москва'
+            });
+
+            window.mapInstance.geoObjects.add(moscowPlacemark);
+        });
+    </script>
+</body>
+</html>
